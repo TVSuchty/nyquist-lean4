@@ -29,7 +29,7 @@ A machine-checked formalization of the **Nyquist Stability Criterion** and suppo
 
 ## Guides & Explanations
 
-* **Für E-Technik- & Informatik-Studierende (FH / Bachelor, Deutsch):** [`docs/ERKLAERUNG_STUDIERENDE.md`](docs/ERKLAERUNG_STUDIERENDE.md)
+* **For EE / CS Undergrads (Intuitive Step-by-Step Proof Walkthrough):** [`docs/STUDENT_GUIDE.md`](docs/STUDENT_GUIDE.md)
 * **For Lean / Mathlib & Control Theory Pros (Technical Deep Dive + AI Provenance):** [`docs/TECHNICAL_OVERVIEW.md`](docs/TECHNICAL_OVERVIEW.md)
 
 ---
