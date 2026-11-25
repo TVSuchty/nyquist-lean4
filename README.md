@@ -1,0 +1,67 @@
+# Nyquist Stability Criterion in Lean 4
+
+A machine-checked formalization of the **Nyquist Stability Criterion** and supporting complex-analytic & control-theoretic theorems in **Lean 4** (`leanprover/lean4:v4.37.0-rc1` + `mathlib4`).
+
+> **Transparency Note on AI Assistance:** Almost all Lean 4 formalization, proof engineering, and documentation in this repository was authored with AI assistance (Antigravity / Gemini, plus an independent read-only verification audit by local `codex-cli` / `gpt-6.2-astra`) with minimal manual editing by the repository author. Every theorem is 100% kernel-checked by Lean 4 with zero `sorry`s and only Lean's standard axioms `[propext, Classical.choice, Quot.sound]`.
+
+---
+
+## What Is Formalized
+
+| Module | Contents |
+|---|---|
+| [`Nyquist/Defs.lean`](Nyquist/Defs.lean) | Open-loop rational transfer functions $L(s) = N(s)/D(s)$, `IsHurwitz`, `NoImagAxisRoots`, `IsProperNonDegenerate`, RHP/LHP root counts, `nyquistCurve`, D-contour & Bochner winding integrals |
+| [`Nyquist/LogDeriv.lean`](Nyquist/LogDeriv.lean) | Complex polynomial splitting and partial-fraction logarithmic derivative identities on $i\mathbb{R}$ and $R e^{i\theta}$ |
+| [`Nyquist/ImagAxisIntegral.lean`](Nyquist/ImagAxisIntegral.lean) | Explicit `log`/`arctan` antiderivative `poleAntideriv`, $R \to \infty$ limits, and $L^1(\mathbb{R})$ integrability of pole differences |
+| [`Nyquist/SemicircleIntegral.lean`](Nyquist/SemicircleIntegral.lean) | Large-radius semicircle asymptotics |
+| [`Nyquist/PhaseLift.lean`](Nyquist/PhaseLift.lean) | Explicit continuous unwrapped phase lift $\Phi : \mathbb{R} \to \mathbb{R}$ and uniqueness modulo $2\pi\mathbb{Z}$ |
+| [`Nyquist/Criterion.lean`](Nyquist/Criterion.lean) | `nyquist_dContour_tendsto`, `nyquist_semicircle_tendsto_zero`, `nyquistIntegrand_integrable`, `nyquist_encirclement_formula`, `nyquist_phase_lift`, `nyquist_stability_criterion`, and real-coefficient specialization `nyquist_stability_criterion_real` |
+| [`Nyquist/ArgumentPrinciple.lean`](Nyquist/ArgumentPrinciple.lean) | General meromorphic **Argument Principle** on circles (`argumentPrinciple_circle`) and rectangles (`argumentPrinciple_rect`), plus **Rouché's Theorem** (`rouche_circle`) built on Mathlib's `FactorizedRational` |
+| [`Nyquist/Indentation.lean`](Nyquist/Indentation.lean) | Indented Nyquist contour around poles at $s = 0$ (integrators), `nyquist_indented_origin_criterion`, and verified example $L(s) = \frac{K}{s(s+1)}$ ($K > 0$) |
+| [`Nyquist/TimeDelay.lean`](Nyquist/TimeDelay.lean) | Retarded **time-delay systems** $L_\tau(s) = \frac{N(s)}{D(s)} e^{-\tau s}$ ($\tau \ge 0$): `nyquist_delay_stability_criterion`, `nyquist_delay_small_gain`, and delay-independent stability of $L_\tau(s) = \frac{1}{s+2}e^{-\tau s}$ |
+| [`Nyquist/Margins.lean`](Nyquist/Margins.lean) | `nyquist_small_gain_hurwitz`, `nyquist_gain_margin` (stability over $k \in [0, K_{\max}]$), and `coprime_no_rhp_cancellation` |
+| [`Nyquist/Examples.lean`](Nyquist/Examples.lean) | Verified control examples ($K/(s+1)$, $2/(s-1)$, integrator, time-delay) and `#print axioms` audit |
+
+---
+
+## Guides & Explanations
+
+* **Für E-Technik- & Informatik-Studierende (FH / Bachelor, Deutsch):** [`docs/ERKLAERUNG_STUDIERENDE.md`](docs/ERKLAERUNG_STUDIERENDE.md)
+* **For Lean / Mathlib & Control Theory Pros (Technical Deep Dive + AI Provenance):** [`docs/TECHNICAL_OVERVIEW.md`](docs/TECHNICAL_OVERVIEW.md)
+
+---
+
+## Building Locally
+
+```bash
+git clone https://github.com/TVSuchty/nyquist-lean4.git
+cd nyquist-lean4
+lake exe cache get
+lake build
+```
+
+---
+
+## Axiom & Trust Audit
+
+Running `#print axioms` on the main theorems in [`Nyquist/Examples.lean`](Nyquist/Examples.lean) reports exclusively:
+
+```text
+[propext, Classical.choice, Quot.sound]
+```
+
+There are **zero** `sorry`, `admit`, `native_decide`, `unsafe`, `implemented_by`, or custom `axiom` declarations anywhere in the repository.
+
+---
+
+## Scope & Limitations
+
+1. **Non-origin imaginary-axis poles:** `Nyquist/Indentation.lean` handles poles at the origin $s = 0$ (integrators); general nonzero imaginary-axis poles $i\omega_0 \neq 0$ are not yet indented.
+2. **Algebraic / quasipolynomial stability:** Stability is stated in the frequency/polynomial domain (`IsHurwitz (D + N)` for rational plants, `IsDelayHurwitz` for $D(s) + N(s)e^{-\tau s}$), without an explicit time-domain ODE/DDE equivalence proof.
+3. **Polynomial representation:** `rhpRootCount D` counts roots of the supplied denominator `D` with multiplicity; use `coprime_no_rhp_cancellation` (`IsCoprime N D`) to rule out RHP pole-zero cancellations.
+
+---
+
+## License
+
+Apache-2.0 — see [`LICENSE`](LICENSE).

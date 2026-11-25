@@ -1,0 +1,84 @@
+# Technical Overview: Machine-Checked Nyquist Stability Criterion in Lean 4
+
+*(Audience: Lean 4 / Mathlib developers, formal-methods researchers, and control-theory specialists.)*
+
+---
+
+## 1. Transparency & Authorship Note
+
+Before diving into the mathematics, a clear and honest note on provenance:
+
+> **AI-Assisted Authorship:** Almost all Lean 4 formalization, proof engineering, and documentation in this repository was authored with AI assistance (Antigravity / Gemini and audited via local `codex-cli` running `gpt-6.2-astra`), with minimal manual intervention by the repository owner (`Niclas Schwalbe`).
+>
+> **Verification Guarantee:** Every single proof step is mechanically type-checked by the Lean 4 kernel (`leanprover/lean4:v4.37.0-rc1`) with zero `sorry`, zero `admit`, zero `native_decide`, zero `unsafe`, zero `implemented_by`, and zero custom `axiom`s. All theorem declarations depend exclusively on Lean's three standard axioms `[propext, Classical.choice, Quot.sound]`.
+
+---
+
+## 2. Architecture & Proof Strategy
+
+Rather than importing a black-box complex-analysis library or axiomatizing winding numbers, the repository develops the full chain from Lean/Mathlib first principles across 11 modules:
+
+### 2.1 Core Rational Nyquist (`Defs`, `LogDeriv`, `ImagAxisIntegral`, `SemicircleIntegral`, `PhaseLift`, `Criterion`)
+1. **Transfer Function & Characteristic Polynomial (`Nyquist/Defs.lean`):**
+   - `evalTransfer N D s := N.eval s / D.eval s` and `returnDifference N D s := 1 + evalTransfer N D s`.
+   - `rhpRootCount p` / `lhpRootCount p` count roots in `{z | 0 < z.re}` / `{z | z.re < 0}` with multiplicity via `p.roots.filter`.
+   - `IsHurwitz p := p ≠ 0 ∧ ∀ z, p.IsRoot z → z.re < 0`.
+   - `IsProperNonDegenerate N D := D ≠ 0 ∧ D + N ≠ 0 ∧ (D + N).natDegree = D.natDegree` (explicitly excluding both `D + N = 0` and degree cancellation at $\infty$).
+   - `nyquistEncirclementsCCW N D := (1 / (2 * π * I)) * ∫ ω : ℝ, nyquistIntegrand N D ω` (genuine Bochner integral over `ℝ`, not a formal residue sum).
+2. **Algebraic Logarithmic-Derivative Splitting (`Nyquist/LogDeriv.lean`):**
+   - Using `IsAlgClosed.splits` on `ℂ`, `(D + N) / D` splits into linear factors, turning `(1 + L)' / (1 + L)` into $\sum_{z \in Z(D+N)} \frac{1}{s-z} - \sum_{p \in Z(D)} \frac{1}{s-p}$ along both $i\mathbb{R}$ (`nyquistIntegrand_eq_sum_roots`) and the circle $R e^{i\theta}$ (`nyquistSemiIntegrand_eq_sum_roots`).
+3. **Explicit Antiderivatives & $L^1$ Integrability (`Nyquist/ImagAxisIntegral.lean`):**
+   - Explicit antiderivative `poleAntideriv a ω := (1/2) * log(a.re^2 + (ω - a.im)^2) - I * arctan((ω - a.im)/a.re)` gives `∫_{-R}^R I/(I*ω - a) dω → ∓ I * π` according to `sgn(a.re)`.
+   - Although single poles decay only as $O(1/\omega)$, `integrable_pole_sub_ref` dominates `I/(I*ω - a) - I/(I*ω - 1)` by $C / (1 + \omega^2)$ (`integrable_inv_one_add_sq`). Under `IsProperNonDegenerate N D`, `(D + N).roots.card = D.roots.card`, so all reference terms cancel identically, proving `nyquistIntegrand_integrable` in `L¹(ℝ)`.
+4. **Semicircle Asymptotics & D-Contour Argument Principle (`SemicircleIntegral.lean`, `Criterion.lean`):**
+   - `nyquist_dContour_tendsto` proves convergence of `nyquistDContourCW N D R → Z - P` as $R \to \infty$ **without properness**.
+   - Under `IsProperNonDegenerate`, `nyquist_semicircle_tendsto_zero` eliminates the closing arc, and `intervalIntegral_tendsto_integral` identifies the Bochner integral on `ℝ` with `P - Z` (`nyquist_encirclement_formula`), yielding `nyquist_stability_criterion`, `_cw`, `_strictlyProper`, `_openLoopStable`, and `nyquist_stability_criterion_real` (plus conjugate symmetry `nyquistCurve_conj_symm`).
+5. **Topological Continuous Phase Lift (`Nyquist/PhaseLift.lean`, `nyquist_phase_lift`):**
+   - Independently constructs a continuous unwrapped phase $\Phi : \mathbb{R} \to \mathbb{R}$ with $1 + L(i\omega) = \|1 + L(i\omega)\| e^{i \Phi(\omega)}$ and $\Phi(+\infty) - \Phi(-\infty) = 2\pi(P - Z)$.
+   - `continuous_phase_lift_unique` uses `intermediate_value_uIcc` on $\mathbb{R}$ to show any two continuous lifts differ everywhere by a single fixed $2\pi k$.
+
+### 2.2 Mathlib-Level Complex Analysis (`Nyquist/ArgumentPrinciple.lean`)
+Built directly on Mathlib's `MeromorphicOn.extract_zeros_poles` (`Mathlib.Analysis.Meromorphic.FactorizedRational`), `Meromorphic.LogDeriv`, and `CauchyIntegral`:
+- **`argumentPrinciple_circle`**: For `MeromorphicOn f U` on open `U ⊇ closedBall c R` with finite divisor support in `U` and `meromorphicOrderAt f z = 0` on `sphere c R`, relates `(2πi)⁻¹ ∮_{C(c,R)} logDeriv f` to the finsum of `meromorphicOrderAt f u` over `ball c R`.
+- **`rouche_circle`**: Proves Rouché's theorem on `circleIntegral` **without homotopy**, by showing `q := (f + g) / f` maps `sphere c R` into `Complex.slitPlane` (`‖g/f‖ < 1 ⇒ Re(q) > 0`), giving a `C¹` logarithmic primitive `θ ↦ Complex.log (q (c + R * exp (I * θ)))` whose `[0, 2π]` integral vanishes identically.
+- **`argumentPrinciple_rect`**: Proves the argument principle on arbitrary axis-aligned rectangles `[[z.re, w.re]] ×ℂ [[z.im, w.im]]`, evaluating `rectBoundaryIntegral (fun s => (s - u)⁻¹) z w = 2πi` for interior points via explicit `log`/`arctan` antiderivatives on all 4 edges and `0` outside via Cauchy–Goursat.
+
+### 2.3 Control-Theoretic Extensions (`Indentation`, `TimeDelay`, `Margins`)
+* **Origin Poles / Integrators (`Nyquist/Indentation.lean`):**
+  - `nyquistOriginIndentIntegral N D R ε` indents around `s = 0` via `ε * exp(I * θ)` for `θ ∈ [-π/2, π/2]`.
+  - Exploits oddness of `I / (I * ω)` on `[-R, -ε] ∪ [ε, R]` (exact cancellation to `0`) and exact `I * π` on the indentation, proving `nyquist_indented_origin_tendsto` and `nyquist_indented_origin_criterion` as $R \to \infty$ then $\varepsilon \to 0^+$.
+  - Verified on $L(s) = K / (s(s+1))$ (`example_integrator_stable`).
+* **Retarded Time-Delay Systems (`Nyquist/TimeDelay.lean`):**
+  - Models $L_\tau(s) = \frac{N(s)}{D(s)} e^{-\tau s}$ ($\tau \ge 0$, `N.natDegree < D.natDegree`) and quasipolynomial $D(s) + N(s) e^{-\tau s}$.
+  - Shows `‖L_τ(s)‖ < 1/2` in the closed RHP outside a ball `R₀`, implying finite RHP zeros inside `[0, R] × [-R, R]` and `delayReturnDiff ∈ slitPlane` on all three outer edges of the rectangle.
+  - Applies `argumentPrinciple_rect` and telescopes `Complex.log` along the 3 outer edges to `log(F(iR)) - log(F(-iR)) → 0`, yielding `nyquist_delay_encirclement_tendsto`, `nyquist_delay_stability_criterion`, `nyquist_delay_small_gain`, and delay-independent stability of $L_\tau(s) = \frac{1}{s+2}e^{-\tau s}$ (`example_delay_independent_stable`).
+* **Margins & Coprime Internal Stability (`Nyquist/Margins.lean`):**
+  - `nyquist_small_gain_hurwitz`: Proper `IsHurwitz D` + `∀ ω, ‖L(iω)‖ < 1 ⇒ IsHurwitz (D + N)`.
+  - `nyquist_gain_margin`: Gain-margin stability over `k ∈ [0, K_max]` via uniform `C / (1 + ω²)` domination (`IsCompact.exists_isMinOn`/`isMaxOn`), `continuousOn_of_dominated`, and `intermediate_value_Icc`.
+  - `coprime_no_rhp_cancellation`: `IsCoprime N D` rules out pole-zero cancellation between `D` and `D + N`.
+
+---
+
+## 3. Axiom & Universe Audit (ZFC Compatibility)
+
+* Every declaration across all modules compiles with `0` `sorry`, `0` `admit`, `0` `native_decide`, `0` `unsafe`, `0` `implemented_by`, and `0` custom `axiom`s.
+* `#print axioms` on all main theorems (verified in `Nyquist/Examples.lean` and via transitive dependency inspection) depends **only** on:
+  ```
+  [propext, Classical.choice, Quot.sound]
+  ```
+  No `sorryAx`, `Lean.ofReduceBool`, or `Lean.trustCompiler` is used anywhere.
+* **Set-Theoretic / ZFC Nuance:** All theorem statements are non-universe-polymorphic (no universe parameters), living at low finite universe levels (`Type 0` / `Prop`), where `propext`, `Classical.choice`, and `Quot.sound` admit standard ZFC set-theoretic interpretations. (Formal reduction of Lean's full dependent type theory with its entire universe hierarchy to ZFC is a separate metatheoretic fact, as Lean's standard model of arbitrary universes assumes inaccessible cardinals, though no large-cardinal features are exercised here.)
+
+---
+
+## 4. Known Scope Boundaries & Potential Mathlib PRs
+
+### Scope Boundaries
+1. **Non-origin imaginary-axis poles:** `Indentation.lean` treats poles at `s = 0` (the classical integrator case), not general poles at `i ω₀ ≠ 0`.
+2. **State-space / time-domain equivalence:** Stability is formalized as `IsHurwitz (D + N)` (or `IsDelayHurwitz` for quasipolynomials), not coupled to an explicit ODE/delay-differential state-space realization.
+3. **Coprimeness:** For rational `N, D`, `rhpRootCount D` counts roots of the supplied polynomial `D`; if `N` and `D` share RHP roots, `coprime_no_rhp_cancellation` documents the coprimeness condition needed to identify `rhpRootCount D` with reduced transfer-function poles.
+
+### Mathlib PR Candidates
+If upstreaming pieces to `mathlib4` (after consulting Lean Zulip / `Meromorphic` maintainers):
+1. `Nyquist/ArgumentPrinciple.lean` (`argumentPrinciple_circle`, `rouche_circle`, `argumentPrinciple_rect`) sits directly on top of `Mathlib.Analysis.Meromorphic.FactorizedRational` and `Mathlib.Analysis.Complex.CauchyIntegral`, filling a genuine gap in `Mathlib.Analysis.Complex`.
+2. Control-specific modules (`Defs`, `Criterion`, `Indentation`, `TimeDelay`, `Margins`) fit best in an external control library (such as `LeanForControl`) or as this standalone package.
