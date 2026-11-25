@@ -2,6 +2,8 @@
 
 *(Zielgruppe: Bachelor / FH – Elektrotechnik, Mechatronik, Automatisierungstechnik oder Informatik mit Grundkenntnissen in Regelungstechnik und Analysis.)*
 
+> **Ehrlicher Disclaimer:** Ich (der Repo-Ersteller) habe zwar ein bisschen Regelungstechnik in meinem Leben gemacht, aber was hier mathematisch und in Lean 4 abgeht, ist ehrlich gesagt weit über meinem Niveau. Praktisch der gesamte Code, alle Beweise und auch diese Erklärung wurden komplett von KI erstellt – ich habe im Wesentlichen nur ein bisschen gepromptet. Die mathematische Korrektheit ist trotzdem hart abgesichert, weil der Lean-4-Kernel jeden einzelnen Beweisschritt ohne `sorry` und ohne Zusatzaxiome maschinell nachgeprüft hat.
+
 ---
 
 ## 1. Worum geht es überhaupt?
